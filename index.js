@@ -11,10 +11,10 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 let allow = {
-    origin: "http://192.168.20.199:3000",
-		methods: ["GET","POST"],
-}
-app.use(cors());
+	origin: "https://e-absen-frontend.vercel.app",
+	methods: ["GET", "POST"],
+};
+app.use(cors(allow));
 
 app.use("/auth", auth);
 app.use("/absen", absen);
