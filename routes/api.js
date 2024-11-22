@@ -6,8 +6,16 @@ const jwt = require("jsonwebtoken");
 const { db } = require("../src/database");
 const response = require("../utils/response");
 const { generateStudentCode } = require("../utils/string");
-
+const rateLimit = require("express-rate-limit");
 const api = express.Router();
+
+const limiter = rateLimit({
+	windowMs: global.rate_limit.windowMs,
+	max: global.rate_limit.max,
+	message: global.rate_limit.message,
+	standardHeaders: global.rate_limit.standardHeaders,
+	legacyHeaders: global.rate_limit.legacyHeaders
+});
 
 function verifyAuthToken(req, res, next) {
 	const authHeader = req.headers["authorization"];
@@ -25,6 +33,8 @@ function verifyAuthToken(req, res, next) {
 	});
 }
 
+api.use("/", limiter);
+
 api.get("/siswa", verifyAuthToken, (req, res) => {
 	const sql = "SELECT * FROM students";
 	db.query(sql, (err, data) => {
@@ -39,6 +49,11 @@ api.get("/siswa", verifyAuthToken, (req, res) => {
 
 api.post("/siswa/add", verifyAuthToken, (req, res) => {
 	const { nisn, full_name, class_name, parent_number } = req.body;
+
+	if (!nisn || !full_name || !class_name || !parent_number) {
+		return response("Semua data harus diisi!", null, 400, res);
+	}
+
 	const query = `INSERT INTO students (student_id, nisn, full_name, class, parent_number, created_at) VALUES (?, ?, ?, ?, ?, current_timestamp())`;
 	let idSiswa = generateStudentCode();
 	db.query(query, [idSiswa, nisn, full_name, class_name, parent_number], (error, data) => {
@@ -53,8 +68,12 @@ api.post("/siswa/add", verifyAuthToken, (req, res) => {
 
 api.post("/siswa/update", verifyAuthToken, (req, res) => {
 	const { sid, nisn, full_name, class_name, parent_number } = req.body;
-	const query = `UPDATE students SET nisn = ?, full_name = ?, class = ?, parent_number = ? WHERE id = ?`;
 
+	if (!sid || !nisn || !full_name || !class_name || !parent_number) {
+		return response("Semua data harus diisi!", null, 400, res);
+	}
+
+	const query = `UPDATE students SET nisn = ?, full_name = ?, class = ?, parent_number = ? WHERE id = ?`;
 	db.query(query, [nisn, full_name, class_name, parent_number, sid], (error, data) => {
 		if (error) {
 			console.error("[ API ] : ERROR => ", error);
@@ -69,14 +88,32 @@ api.post("/siswa/update", verifyAuthToken, (req, res) => {
 
 api.post("/siswa/delete", verifyAuthToken, (req, res) => {
 	const { sid } = req.body;
-	const query = `DELETE FROM students WHERE id = ?`;
 
+	if (!sid) {
+		return response("ID siswa harus diisi!", null, 400, res);
+	}
+
+	const query = `DELETE FROM students WHERE id = ?`;
 	db.query(query, [sid], (error, data) => {
 		if (error) {
 			console.error("[ API ] : ERROR => ", error);
-			return response("Internal Server Error!", null, 500, res);
+			return response("Terjadi kesalahan saat menghapus siswa!", null, 500, res);
 		} else {
 			response("Berhasil menghapus siswa!", { deleted_student: { sid } }, 200, res);
+		}
+	});
+});
+api.post("/count", verifyAuthToken, (req, res) => {
+	const sql = "SELECT * FROM students";
+	db.query(sql, (err, siswa) => {
+		if (err) {
+			console.error("[ API ] : ERROR => ", err);
+			return response("Internal Server Error!", null, 500, res);
+		} else {
+			let X = siswa.filter((s) => s.class === "X");
+			let XI = siswa.filter((s) => s.class === "XI");
+			let XII = siswa.filter((s) => s.class === "XII");
+			response("Berhasil mendapatkan semua data", siswa, 200, res);
 		}
 	});
 });

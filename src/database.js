@@ -7,16 +7,18 @@ const db = mysql.createConnection(
 		host: global.DB.host,
 		user: global.DB.user,
 		password: global.DB.password,
-		database: global.DB.database,
+		database: global.DB.database
 	},
 	err => {
 		if (err) {
-			console.error("[ DATABASE ] : GAGAL TERHUBUNG KE DATABASE! => ", err);
+			console.error(
+				"[ DATABASE ] : GAGAL TERHUBUNG KE DATABASE! => ",
+				err
+			);
 		}
-	},
+	}
 );
 
-
 module.exports = {
-    db
-}
+	db
+};

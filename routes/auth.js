@@ -8,8 +8,24 @@ const response = require("../utils/response");
 
 const auth = express.Router();
 
+const rateLimit = require("express-rate-limit");
+const limiter = rateLimit({
+	windowMs: global.rate_limit.windowMs,
+	max: global.rate_limit.max,
+	message: global.rate_limit.message,
+	standardHeaders: global.rate_limit.standardHeaders,
+	legacyHeaders: global.rate_limit.legacyHeaders
+});
+
+auth.use("/", limiter);
+
 auth.post("/login", (req, res) => {
 	const { username, password } = req.body;
+
+	if (!username || !password) {
+		return response("Username atau password harus di isi!", null, 400, res);
+	}
+
 	const sql = "SELECT * FROM teachers WHERE username = ?";
 
 	db.query(sql, [username], (err, results) => {
@@ -24,7 +40,7 @@ auth.post("/login", (req, res) => {
 
 		if (teacher.password === password) {
 			const token = jwt.sign({ id: teacher.id }, global.SECRET_KEY, {
-				expiresIn: 86400,
+				expiresIn: 86400
 			});
 			console.log(`[ TEACHER (${teacher.full_name})] : LOGIN`);
 
@@ -32,7 +48,7 @@ auth.post("/login", (req, res) => {
 				id: teacher.id,
 				username: teacher.username,
 				full_name: teacher.full_name,
-				token,
+				token
 			};
 			response("Berhasil login!", data, 200, res);
 		} else {

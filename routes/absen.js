@@ -7,6 +7,17 @@ const moment = require("moment-timezone");
 
 const absen = express.Router();
 
+const rateLimit = require("express-rate-limit");
+const limiter = rateLimit({
+	windowMs: global.rate_limit.windowMs,
+	max: global.rate_limit.max,
+	message: global.rate_limit.message,
+	standardHeaders: global.rate_limit.standardHeaders,
+	legacyHeaders: global.rate_limit.legacyHeaders
+});
+
+absen.use("/", limiter);
+
 const createDailyTable = () => {
 	const today = moment().tz("Asia/Makassar").format("YYYY_MM_DD");
 	const tableName = `absensi_${today}`;
@@ -24,13 +35,33 @@ const createDailyTable = () => {
         );
     `;
 
-	db.query(createTableSQL, err => {
+	db.query(createTableSQL, (err) => {
 		if (err) throw err;
 		console.log(`Table created: ${tableName}`);
 	});
 };
 
-createDailyTable();
+let isFirstRun;
+isFirstRun = true;
+const setIsFirstRun = (value) => {
+	isFirstRun = value;
+};
+
+if (isFirstRun) {
+	createDailyTable();
+	setIsFirstRun(false);
+}
+
+setInterval(
+	function () {
+		if (!isFirstRun) {
+			createDailyTable();
+		}
+	},
+	1000 * 60 * 60 * 24
+);
+
+
 
 absen.post("/masuk", (req, res, next) => {
 	const { nisn, nama, kelas, waktu_absen } = req.body;
@@ -47,7 +78,7 @@ absen.post("/masuk", (req, res, next) => {
 	batas_masuk.set({
 		year: waktu_absen_date.year(),
 		month: waktu_absen_date.month(),
-		date: waktu_absen_date.date(),
+		date: waktu_absen_date.date()
 	});
 
 	console.log("waktu masuk:", waktu_absen_date);
@@ -70,8 +101,6 @@ absen.post("/masuk", (req, res, next) => {
 	});
 });
 
-
-
 // Endpoint untuk mencatat absensi pulang
 absen.post("/pulang", (req, res, next) => {
 	const { nisn, waktu_pulang } = req.body;
@@ -82,8 +111,7 @@ absen.post("/pulang", (req, res, next) => {
 	const sqlCheck = `SELECT * FROM ${tableName} WHERE nisn = ? ORDER BY waktu_absen DESC LIMIT 1`;
 	db.query(sqlCheck, [nisn], (err, result) => {
 		if (err) return res.status(500).json({ error: err.message });
-		if (result.length === 0)
-			return res.status(404).json({ message: "Siswa belum absen pagi" });
+		if (result.length === 0) return res.status(404).json({ message: "Siswa belum absen pagi" });
 
 		const hasCheckedOut = !!result[0].waktu_pulang; // Periksa apakah sudah absen pulang
 		const statusPulang = hasCheckedOut ? "Hadir" : "Bolos";
@@ -91,21 +119,16 @@ absen.post("/pulang", (req, res, next) => {
 		// Jika belum absen pulang, catat waktu pulang dan ubah status menjadi "Hadir"
 		if (!hasCheckedOut) {
 			const sqlUpdate = `UPDATE ${tableName} SET waktu_pulang = ?, status_pulang = ? WHERE id = ?`;
-			db.query(
-				sqlUpdate,
-				[waktu_pulang, "Hadir", result[0].id],
-				(err, updateResult) => {
-					if (err) return res.status(500).json({ error: err.message });
-					res.status(200).json({ message: "Absensi pulang tercatat", status: "Hadir" });
-				}
-			);
+			db.query(sqlUpdate, [waktu_pulang, "Hadir", result[0].id], (err, updateResult) => {
+				if (err) return res.status(500).json({ error: err.message });
+				res.status(200).json({ message: "Absensi pulang tercatat", status: "Hadir" });
+			});
 		} else {
 			// Jika sudah ada absensi pulang
 			res.status(200).json({ message: "Sudah tercatat absen pulang", status: "Hadir" });
 		}
 	});
 });
-
 
 // Endpoint untuk melihat hasil absensi berdasarkan tanggal
 absen.get("/absensi/:date", (req, res, next) => {
@@ -116,9 +139,7 @@ absen.get("/absensi/:date", (req, res, next) => {
 	db.query(sql, (err, results) => {
 		if (err) return res.status(500).json({ error: err.message });
 		if (results.length === 0)
-			return res
-				.status(404)
-				.json({ message: "Tidak ada data absensi untuk tanggal ini" });
+			return res.status(404).json({ message: "Tidak ada data absensi untuk tanggal ini" });
 
 		res.status(200).json(results);
 	});
