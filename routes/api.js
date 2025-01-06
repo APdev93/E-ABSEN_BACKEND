@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 
 const { db } = require("../src/database");
 const response = require("../utils/response");
+const handler = require("../utils/handler");
 const { generateStudentCode } = require("../utils/string");
 const rateLimit = require("express-rate-limit");
 const api = express.Router();
@@ -34,6 +35,87 @@ function verifyAuthToken(req, res, next) {
 }
 
 api.use("/", limiter);
+
+// Jurusan & kelas
+
+api.get("/jurusan", verifyAuthToken, (req, res) => {
+	let sql = "SELECT * FROM jurusan";
+
+	db.query(sql, (err, data) => {
+		if (err) {
+			handler.error("API", res, err);
+		} else {
+			response("Berhasil mengambil data jurusan!", data, 200, res);
+		}
+	});
+});
+
+api.post("/jurusan/add", verifyAuthToken, (req, res) => {
+	let { jurusan } = req.body;
+	let sql = "INSERT INTO jurusan (jurusan) VALUES (?);";
+
+	if (!jurusan) {
+		return response("Jurusan harus di isi", null, 400, res);
+	}
+
+	db.query(sql, [jurusan], (err, data) => {
+		if (err) {
+			handler.error("API", res, err);
+		} else {
+			response("Berhasil menambah jurusan!", data, 200, res);
+		}
+	});
+});
+
+api.post("/jurusan/update", verifyAuthToken, (req, res) => {
+	let { id, jurusan } = req.body;
+	let sql = "UPDATE jurusan SET jurusan = ? WHERE id = ?";
+
+	if (!id || !jurusan) {
+		return response("Semua data harus diisi!", null, 400, res);
+	}
+
+	db.query(sql, [jurusan, id], (err, data) => {
+		if (err) {
+			handler.error("API", res, err);
+		} else {
+			response("Berhasil mengupdate data jurusan!", data, 200, res);
+		}
+	});
+});
+
+api.post("/jurusan/delete", verifyAuthToken, (req, res) => {
+	let { id } = req.body;
+	let sql = "DELETE FROM jurusan WHERE id = ?";
+
+	if (!id) {
+		return response("id harus diisi!", null, 400, res);
+	}
+
+	db.query(sql, [id], (err, data) => {
+		if (err) {
+			handler.error("API", res, err);
+		} else {
+			response("Berhasil menghapus jurusan!", data, 200, res);
+		}
+	});
+});
+
+api.post("/kelas", verifyAuthToken, (req, res) => {
+	let sql = "SELECT * FROM kelas";
+
+	db.query(sql, (err, data) => {
+		if (err) {
+			handler.error("API", res, err);
+		} else {
+			response("Berhasil mengambil data kelas!", data, 200, res);
+		}
+	});
+});
+
+api.post("/kelas/add", verifyAuthToken, (req, res) => {});
+api.post("/kelas/update", verifyAuthToken, (req, res) => {});
+api.post("/kelas/delete", verifyAuthToken, (req, res) => {});
 
 api.get("/siswa", verifyAuthToken, (req, res) => {
 	const sql = "SELECT * FROM students";
@@ -103,6 +185,7 @@ api.post("/siswa/delete", verifyAuthToken, (req, res) => {
 		}
 	});
 });
+
 api.post("/count", verifyAuthToken, (req, res) => {
 	const sql = "SELECT * FROM students";
 	db.query(sql, (err, siswa) => {

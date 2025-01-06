@@ -18,28 +18,27 @@ const limiter = rateLimit({
 
 absen.use("/", limiter);
 
-const createDailyTable = () => {
-	const today = moment().tz("Asia/Makassar").format("YYYY_MM_DD");
-	const tableName = `absensi_${today}`;
+const createTableSQL = `
+    CREATE TABLE IF NOT EXISTS absensi (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        date INT(2),
+        month INT(2),
+        year INT(4),
+        nisn VARCHAR(30),
+        nama VARCHAR(50),
+        kelas VARCHAR(5),
+        waktu_absen DATETIME,
+        waktu_pulang DATETIME,
+        status_pulang VARCHAR(20),
+        status VARCHAR(20)
+    );
+`;
 
-	const createTableSQL = `
-        CREATE TABLE IF NOT EXISTS ${tableName} (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            nisn VARCHAR(30),
-            nama VARCHAR(50),
-            kelas VARCHAR(5),
-            waktu_absen DATETIME,
-            waktu_pulang DATETIME,
-            status_pulang VARCHAR(20),
-            status VARCHAR(20)
-        );
-    `;
-
-	db.query(createTableSQL, (err) => {
-		if (err) throw err;
-		console.log(`Table created: ${tableName}`);
-	});
-};
+db.query(createTableSQL, (err) => {
+	if (err) throw err;
+	console.log("Table created: absensi");
+});
+/*
 
 let isFirstRun;
 isFirstRun = true;
@@ -60,16 +59,16 @@ setInterval(
 	},
 	1000 * 60 * 60 * 24
 );
-
-
+*/
 
 absen.post("/masuk", (req, res, next) => {
 	const { nisn, nama, kelas, waktu_absen } = req.body;
-	const today = moment().tz("Asia/Makassar").format("YYYY_MM_DD");
-	const tableName = `absensi_${today}`;
+	const today = new Date();
+
+	const tableName = `absensi`;
 
 	// Tentukan batas waktu masuk dengan jam 07:15 di zona waktu Asia/Makassar
-	let batas_masuk = moment.tz("07:15", "HH:mm", "Asia/Makassar");
+	let batas_masuk = moment.tz("21:00", "HH:mm", "Asia/Makassar");
 
 	// Konversi waktu_absen yang diterima dari frontend ke objek Moment Asia/Makassar
 	const waktu_absen_date = moment.tz(waktu_absen, "Asia/Makassar");
@@ -92,20 +91,33 @@ absen.post("/masuk", (req, res, next) => {
 		status = `Lambat (${terlambat_menit} menit)`;
 	}
 
-	const sql = `INSERT INTO ${tableName} (nisn, nama, kelas, waktu_absen, status) VALUES (?, ?, ?, ?, ?)`;
-	db.query(sql, [nisn, nama, kelas, waktu_absen, status], (err, result) => {
-		if (err) {
-			return res.status(500).json({ error: err.message });
+	const sql = `INSERT INTO ${tableName} (date, month, year, nisn, nama, kelas, waktu_absen, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+	db.query(
+		sql,
+		[
+			today.getDate(),
+			today.getMonth() + 1,
+			today.getFullYear(),
+			nisn,
+			nama,
+			kelas,
+			waktu_absen,
+			status
+		],
+		(err, result) => {
+			if (err) {
+				return res.status(500).json({ error: err.message });
+			}
+			res.status(200).json({ message: "Absensi pagi tercatat", status });
 		}
-		res.status(200).json({ message: "Absensi pagi tercatat", status });
-	});
+	);
 });
 
 // Endpoint untuk mencatat absensi pulang
 absen.post("/pulang", (req, res, next) => {
 	const { nisn, waktu_pulang } = req.body;
 	const today = moment().tz("Asia/Makassar").format("YYYY_MM_DD");
-	const tableName = `absensi_${today}`;
+	const tableName = `absensi`;
 
 	// Periksa apakah siswa sudah melakukan absensi pagi
 	const sqlCheck = `SELECT * FROM ${tableName} WHERE nisn = ? ORDER BY waktu_absen DESC LIMIT 1`;
@@ -133,10 +145,17 @@ absen.post("/pulang", (req, res, next) => {
 // Endpoint untuk melihat hasil absensi berdasarkan tanggal
 absen.get("/absensi/:date", (req, res, next) => {
 	const { date } = req.params; // Format: YYYY-MM-DD
-	const tableName = `absensi_${moment(date).format("YYYY_MM_DD")}`;
+	let dates = new Date(date);
+	let tanggal = dates.getDate();
+	let bulan = dates.getMonth() + 1; // bulan dimulai dari 0, jadi ditambah 1
+	let tahun = dates.getFullYear();
 
-	const sql = `SELECT * FROM ${tableName}`;
-	db.query(sql, (err, results) => {
+	console.log({ tanggal, bulan, tahun });
+
+	// Ubah query untuk menggunakan parameter tanggal, bulan, dan tahun
+	const sql = `SELECT * FROM absensi WHERE date LIKE ? AND month LIKE ? AND year LIKE ?`;
+
+	db.query(sql, [`${tanggal}`, `${bulan}`, `${tahun}`], (err, results) => {
 		if (err) return res.status(500).json({ error: err.message });
 		if (results.length === 0)
 			return res.status(404).json({ message: "Tidak ada data absensi untuk tanggal ini" });
