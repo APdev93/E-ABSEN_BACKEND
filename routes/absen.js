@@ -68,7 +68,7 @@ absen.post("/masuk", (req, res, next) => {
 	const tableName = `absensi`;
 
 	// Tentukan batas waktu masuk dengan jam 07:15 di zona waktu Asia/Makassar
-	let batas_masuk = moment.tz("21:00", "HH:mm", "Asia/Makassar");
+	let batas_masuk = moment.tz(global.batas_masuk, "HH:mm", "Asia/Makassar");
 
 	// Konversi waktu_absen yang diterima dari frontend ke objek Moment Asia/Makassar
 	const waktu_absen_date = moment.tz(waktu_absen, "Asia/Makassar");

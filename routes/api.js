@@ -101,7 +101,7 @@ api.post("/jurusan/delete", verifyAuthToken, (req, res) => {
 	});
 });
 
-api.post("/kelas", verifyAuthToken, (req, res) => {
+api.get("/kelas", verifyAuthToken, (req, res) => {
 	let sql = "SELECT * FROM kelas";
 
 	db.query(sql, (err, data) => {
@@ -113,9 +113,39 @@ api.post("/kelas", verifyAuthToken, (req, res) => {
 	});
 });
 
-api.post("/kelas/add", verifyAuthToken, (req, res) => {});
+api.post("/kelas/add", verifyAuthToken, (req, res) => {
+	let { kelas, jurusan } = req.body;
+	let sql = "INSERT INTO kelas (id, kelas, jurusan) VALUES (NULL, ?, ?);";
+
+	if (!jurusan || !kelas) {
+		return response("kelas dan jurusan harus di isi", null, 400, res);
+	}
+
+	db.query(sql, [kelas, jurusan], (err, data) => {
+		if (err) {
+			handler.error("API", res, err);
+		} else {
+			response("Berhasil menambah kelas!", data, 200, res);
+		}
+	});
+});
 api.post("/kelas/update", verifyAuthToken, (req, res) => {});
-api.post("/kelas/delete", verifyAuthToken, (req, res) => {});
+api.post("/kelas/delete", verifyAuthToken, (req, res) => {
+	let { id } = req.body;
+	let sql = "DELETE FROM kelas WHERE id = ?";
+
+	if (!id) {
+		return response("id harus diisi!", null, 400, res);
+	}
+
+	db.query(sql, [id], (err, data) => {
+		if (err) {
+			handler.error("API", res, err);
+		} else {
+			response("Berhasil menghapus kelas!", data, 200, res);
+		}
+	});
+});
 
 api.get("/siswa", verifyAuthToken, (req, res) => {
 	const sql = "SELECT * FROM students";

@@ -1,7 +1,8 @@
 global.PORT = 8081;
+global.batas_masuk = "07:15";
 global.rate_limit = {
 	windowMs: 60 * 1000,
-	max: 30,
+	max: 100,
 	message: "Too Many Requests! :(",
 	standardHeaders: true,
 	legacyHeaders: false
